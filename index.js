@@ -116,8 +116,14 @@ function startServer() {
     app.post("/addTodo", auth, async (req, res) => {
         let title = req.body.title;
         let userId = req.userId;
-        await TodoModel.create({ title: title, userId: userId });
-        res.json({ message: "Todos created" });
+        let todos = await TodoModel.find({userId: userId})
+        let response = todos.find(e => e.title === title)
+        if(!response){
+            await TodoModel.create({ title: title, userId: userId });
+            res.json({ message: "Todos created" });
+        } else{
+            res.json({ message: "Todo exists already"} )
+        }
     });
 
     app.delete("/deleteTodo", auth, async (req, res) => {
