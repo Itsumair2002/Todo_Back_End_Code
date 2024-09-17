@@ -28,12 +28,13 @@ const TodoModel = mongoose.model("todos", Todo);
 
 function auth(req, res, next) {
     const token = req.headers.token;
-    const response = jwt.verify(token, JWT_SECRET);
-    if (!response) {
-        res.json({ message: "Incorrect Credentials" });
+    try {
+        const response = jwt.verify(token, JWT_SECRET);
+        req.userId = response.id;
+        next();
+    } catch (error) {
+        return res.json({ message: "Incorrect Credentials" });
     }
-    req.userId = response.id;
-    next();
 }
 
 async function connectToDatabase() {
@@ -54,6 +55,7 @@ function startServer() {
             return hash;
         } catch (error) {
             console.log('Error occured while hashing the password: ', error);
+            return null;
         }
     }
 
@@ -63,6 +65,7 @@ function startServer() {
             return match;
         } catch (error) {
             console.log('Error while verifying the password: ', error);
+            return false;
         }
     }
 
@@ -91,11 +94,11 @@ function startServer() {
         try {
             const user = await UserModel.findOne({ email: email });
             if (!user) {
-                res.json({ message: "User not found!" });
+                return res.json({ message: "User not found!" });
             }
             const isPasswordValid = await verifyPassword(password, user.password);
             if (!isPasswordValid) {
-                res.json({ message: "Password is not valid!" });
+                return res.json({ message: "Password is not valid!" });
             }
             const token = jwt.sign({ id: user._id }, JWT_SECRET);
             res.json({ token });
