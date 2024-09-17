@@ -75,15 +75,20 @@ function startServer() {
         try {
             let hashedPassword = await hashPassword(password);
             if (hashedPassword) {
-                await UserModel.create({
+                let response = await UserModel.create({
                     email: email,
                     password: hashedPassword
                 });
-                res.json({ message: "You are signed up!" });
-            } else res.json({ message: "Error hashing the password" });
+                console.log(response)
+                res.status(200).json({ message: "You are signed up!" });
+            } else res.status(500).json({ message: "Error hashing the password" });
         } catch (error) {
-            console.log('Error: ', error);
-            res.json({ message: "Error while signup!" });
+            if(error.code === 11000){
+                res.status(403).json({ message: "User already registered!" })
+            } else {
+                console.log('Error: ', error.code);
+                res.status(400).json({ message: "Error while signup!" });
+            }
         }
     });
 
@@ -94,17 +99,17 @@ function startServer() {
         try {
             const user = await UserModel.findOne({ email: email });
             if (!user) {
-                return res.json({ message: "User not found!" });
+                return res.status(403).json({ message: "User not found!" });
             }
             const isPasswordValid = await verifyPassword(password, user.password);
             if (!isPasswordValid) {
-                return res.json({ message: "Password is not valid!" });
+                return res.status(400).json({ message: "Password is not valid!" });
             }
             const token = jwt.sign({ id: user._id }, JWT_SECRET);
-            res.json({ token });
+            res.status(200).json({ token });
         } catch (error) {
             console.log("Error during signin: ", error);
-            res.json({ message: "Error signing in. Please try again." });
+            res.status(500).json({ message: "Error signing in. Please try again." });
         }
     });
 
