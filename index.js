@@ -4,11 +4,13 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { z } = require('zod')
+const nodemailer = require('nodemailer')
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+let otpStore = {}
 const JWT_SECRET = 'klsdhjfklashdfdsf';
 
 const Schema = mongoose.Schema;
@@ -37,6 +39,38 @@ function auth(req, res, next) {
         return res.json({ message: "Incorrect Credentials" });
     }
 }
+async function sendOTP(receiveremail, otp) {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
+            auth: {
+                user: "officialtodoapplication@gmail.com",
+                pass: "blkjylrbtacibyki",
+            },
+            tls: {
+                ciphers: 'SSLv3'
+            }
+        })
+        const mailOptions = {
+            from: 'officialtodoapplication@gmail.com',
+            to: receiveremail,//var,
+            subject: 'OTP for Todo Application',
+            text: `Your One Time Password for Todo Application is ${otp}`,//var,
+        }
+        const info = await transporter.sendMail(mailOptions)
+        console.log('message sent: %s', info.messageId)
+    } catch (error) {
+        console.log(error)
+    }
+
+}
+const generateOTP = () => {
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    return otp;
+};
 
 async function connectToDatabase() {
     try {
@@ -45,6 +79,17 @@ async function connectToDatabase() {
         startServer();
     } catch (error) {
         console.log('Error connecting to the database');
+    }
+}
+function check(body) {
+    const requiredBody = z.object({
+        email: z.string().trim().min(3).max(50).email(),
+        password: z.string().trim().min(5).max(50)
+    })
+    const parsedDataWithSuccess = requiredBody.safeParse(body)
+    if (!parsedDataWithSuccess.success) {
+        res.status(203).json({ message: "Incorrect format", error: parsedDataWithSuccess.error.errors })
+        return
     }
 }
 
@@ -69,19 +114,27 @@ function startServer() {
             return false;
         }
     }
-
-    app.post("/signup", async (req, res) => {
+    app.post("/check", async (req, res) => {
         const requiredBody = z.object({
             email: z.string().trim().min(3).max(50).email(),
             password: z.string().trim().min(5).max(50)
         })
         const parsedDataWithSuccess = requiredBody.safeParse(req.body)
-        if(!parsedDataWithSuccess.success){
-            res.status(203).json({ message: "Incorrect format", error: parsedDataWithSuccess.error.errors})
+        if (!parsedDataWithSuccess.success) {
+            res.status(203).json({ message: "Incorrect format", error: parsedDataWithSuccess.error.errors })
             return
         }
-        let email = req.body.email;
-        let password = req.body.password;
+        const user = await UserModel.findOne({ email: req.body.email });
+        if (user) {
+            console.log('User here')
+            return res.status(205).json({ message: "User already registered" });
+        }
+        res.status(200).json({ message: "Details are correct and user is unique"})
+    })
+    app.post("/signup", async (req, res) => {
+        check(req.body)
+        let email = req.body.email
+        let password = req.body.password
         try {
             let hashedPassword = await hashPassword(password);
             if (hashedPassword) {
@@ -93,7 +146,7 @@ function startServer() {
                 res.status(200).json({ message: "You are signed up!" });
             } else res.status(500).json({ message: "Error hashing the password" });
         } catch (error) {
-            if(error.code === 11000){
+            if (error.code === 11000) {
                 res.status(403).json({ message: "User already registered!" })
             } else {
                 console.log('Error: ', error.code);
@@ -109,11 +162,11 @@ function startServer() {
         try {
             const user = await UserModel.findOne({ email: email });
             if (!user) {
-                return res.status(403).json({ message: "User not found!" });
+                return res.status(205).json({ message: "User not found!" });
             }
             const isPasswordValid = await verifyPassword(password, user.password);
             if (!isPasswordValid) {
-                return res.status(400).json({ message: "Password is not valid!" });
+                return res.status(204).json({ message: "Password is not valid!" });
             }
             const token = jwt.sign({ id: user._id }, JWT_SECRET);
             res.status(200).json({ token });
@@ -126,13 +179,13 @@ function startServer() {
     app.post("/addTodo", auth, async (req, res) => {
         let title = req.body.title;
         let userId = req.userId;
-        let todos = await TodoModel.find({userId: userId})
+        let todos = await TodoModel.find({ userId: userId })
         let response = todos.find(e => e.title === title)
-        if(!response){
+        if (!response) {
             await TodoModel.create({ title: title, userId: userId });
             res.json({ message: "Todos created" });
-        } else{
-            res.json({ message: "Todo exists already"} )
+        } else {
+            res.json({ message: "Todo exists already" })
         }
     });
 
@@ -166,8 +219,39 @@ function startServer() {
             res.json({ message: "Error fetching the todos" });
         }
     });
+    app.post("/sendOtp", async (req, res) => {
+        let email = req.body.email;
+        let otp = generateOTP();
+
+        otpStore[email] = otp;
+        setTimeout(() => {
+            delete otpStore[email];
+        }, 1000 * 60 * 5);
+
+        try {
+            await sendOTP(email, otp);
+            res.status(200).json({ message: "OTP sent successfully" });
+        } catch (error) {
+            res.status(500).json({ message: "Error sending OTP" });
+        }
+    });
+
+    app.post("/verifyOtp", async (req, res) => {
+        let { email, otp } = req.body;
+
+        if (otpStore[email]) {
+            if (otpStore[email] == otp) {
+                delete otpStore[email];
+                return res.status(200).json({ message: "OTP was verified successfully" });
+            } else {
+                console.log(otpStore)
+                return res.status(204).json({ message: "Invalid OTP!" });
+            }
+        } else {
+            console.log(otpStore)
+            return res.status(205).json({ message: "Expired OTP" });
+        }
+    });
 }
-
 connectToDatabase();
-
 app.listen(5000, () => console.log('The server is running...'));
