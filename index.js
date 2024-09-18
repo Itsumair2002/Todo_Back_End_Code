@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 let otpStore = {}
-const JWT_SECRET = 'klsdhjfklashdfdsf';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const Schema = mongoose.Schema;
 const ObjectId = Schema.Types.ObjectId;
@@ -47,8 +47,8 @@ async function sendOTP(receiveremail, otp) {
             port: 587,
             secure: false,
             auth: {
-                user: "officialtodoapplication@gmail.com",
-                pass: "blkjylrbtacibyki",
+                user: process.env.EMAIL,
+                pass: process.env.PASSWORD,
             },
             tls: {
                 ciphers: 'SSLv3'
@@ -56,9 +56,9 @@ async function sendOTP(receiveremail, otp) {
         })
         const mailOptions = {
             from: 'officialtodoapplication@gmail.com',
-            to: receiveremail,//var,
+            to: receiveremail,
             subject: 'OTP for Todo Application',
-            text: `Your One Time Password for Todo Application is ${otp}`,//var,
+            text: `Your One Time Password for Todo Application is ${otp}`,
         }
         const info = await transporter.sendMail(mailOptions)
         console.log('message sent: %s', info.messageId)
@@ -74,8 +74,7 @@ const generateOTP = () => {
 
 async function connectToDatabase() {
     try {
-        await mongoose.connect("mongodb+srv://umair:umair123@cluster0.0ozeb.mongodb.net/Todo_Application");
-        console.log('Connection to the Database is established');
+        await mongoose.connect(process.env.MONGOOSEURL);
         startServer();
     } catch (error) {
         console.log('Error connecting to the database');
@@ -126,7 +125,6 @@ function startServer() {
         }
         const user = await UserModel.findOne({ email: req.body.email });
         if (user) {
-            console.log('User here')
             return res.status(205).json({ message: "User already registered" });
         }
         res.status(200).json({ message: "Details are correct and user is unique"})
@@ -254,4 +252,4 @@ function startServer() {
     });
 }
 connectToDatabase();
-app.listen(5000, () => console.log('The server is running...'));
+app.listen(process.env.PORT, () => console.log('The server is running...'));
