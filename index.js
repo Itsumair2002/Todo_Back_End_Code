@@ -72,8 +72,8 @@ function startServer() {
 
     app.post("/signup", async (req, res) => {
         const requiredBody = z.object({
-            email: z.string().min(3).max(50).email(),
-            password: z.string().min(5).max(50)
+            email: z.string().trim().min(3).max(50).email(),
+            password: z.string().trim().min(5).max(50)
         })
         const parsedDataWithSuccess = requiredBody.safeParse(req.body)
         if(!parsedDataWithSuccess.success){
