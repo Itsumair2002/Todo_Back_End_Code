@@ -3,6 +3,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { z } = require('zod')
 
 const app = express();
 app.use(cors());
@@ -70,6 +71,15 @@ function startServer() {
     }
 
     app.post("/signup", async (req, res) => {
+        const requiredBody = z.object({
+            email: z.string().min(3).max(50).email(),
+            password: z.string().min(5).max(50)
+        })
+        const parsedDataWithSuccess = requiredBody.safeParse(req.body)
+        if(!parsedDataWithSuccess.success){
+            res.status(203).json({ message: "Incorrect format", error: parsedDataWithSuccess.error.errors})
+            return
+        }
         let email = req.body.email;
         let password = req.body.password;
         try {
