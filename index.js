@@ -114,17 +114,47 @@ function startServer() {
         }
     }
     app.post("/check", async (req, res) => {
-        check(req.body)
+        const requiredBody = z.object({
+            email: z.string().trim().min(3).max(50).email(),
+            password: z.string().trim().min(5).max(50)
+        });
+
+        const parsedDataWithSuccess = requiredBody.safeParse(req.body);
+
+        if (!parsedDataWithSuccess.success) {
+            return res.status(203).json({
+                message: "Incorrect format",
+                error: parsedDataWithSuccess.error.errors
+            });
+        }
+
         const user = await UserModel.findOne({ email: req.body.email });
+
         if (user) {
             return res.status(202).json({ message: "User already registered" });
         }
-        res.status(200).json({ message: "Details are correct and user is unique"})
-    })
+
+        res.status(200).json({ message: "Details are correct and user is unique" });
+    });
+
     app.post("/signup", async (req, res) => {
-        check(req.body)
-        let email = req.body.email
-        let password = req.body.password
+        const requiredBody = z.object({
+            email: z.string().trim().min(3).max(50).email(),
+            password: z.string().trim().min(5).max(50)
+        });
+
+        const parsedDataWithSuccess = requiredBody.safeParse(req.body);
+
+        if (!parsedDataWithSuccess.success) {
+            return res.status(203).json({
+                message: "Incorrect format",
+                error: parsedDataWithSuccess.error.errors
+            });
+        }
+
+        let email = req.body.email;
+        let password = req.body.password;
+
         try {
             let hashedPassword = await hashPassword(password);
             if (hashedPassword) {
@@ -132,18 +162,21 @@ function startServer() {
                     email: email,
                     password: hashedPassword
                 });
-                console.log(response)
+                console.log(response);
                 res.status(200).json({ message: "You are signed up!" });
-            } else res.status(500).json({ message: "Error hashing the password" });
+            } else {
+                res.status(500).json({ message: "Error hashing the password" });
+            }
         } catch (error) {
             if (error.code === 11000) {
-                res.status(403).json({ message: "User already registered!" })
+                res.status(403).json({ message: "User already registered!" });
             } else {
-                console.log('Error: ', error.code);
-                res.status(400).json({ message: "Error while signup!" });
+                console.log('Error: ', error);
+                res.status(400).json({ message: "Error during signup!" });
             }
         }
     });
+
 
     app.post("/signin", async (req, res) => {
         let email = req.headers.email;
