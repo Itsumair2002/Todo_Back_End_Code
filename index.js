@@ -117,7 +117,7 @@ function startServer() {
         check(req.body)
         const user = await UserModel.findOne({ email: req.body.email });
         if (user) {
-            return res.status(205).json({ message: "User already registered" });
+            return res.status(202).json({ message: "User already registered" });
         }
         res.status(200).json({ message: "Details are correct and user is unique"})
     })
