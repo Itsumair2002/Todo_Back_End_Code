@@ -206,9 +206,9 @@ function startServer() {
         let response = todos.find(e => e.title === title)
         if (!response) {
             await TodoModel.create({ title: title, userId: userId });
-            res.json({ message: "Todos created" });
+            res.status(200).json({ message: "Todos created" });
         } else {
-            res.json({ message: "Todo exists already" })
+            res.status(403).json({ message: "Todo exists already" })
         }
     });
 
