@@ -114,15 +114,7 @@ function startServer() {
         }
     }
     app.post("/check", async (req, res) => {
-        const requiredBody = z.object({
-            email: z.string().trim().min(3).max(50).email(),
-            password: z.string().trim().min(5).max(50)
-        })
-        const parsedDataWithSuccess = requiredBody.safeParse(req.body)
-        if (!parsedDataWithSuccess.success) {
-            res.status(203).json({ message: "Incorrect format", error: parsedDataWithSuccess.error.errors })
-            return
-        }
+        check(req.body)
         const user = await UserModel.findOne({ email: req.body.email });
         if (user) {
             return res.status(205).json({ message: "User already registered" });
